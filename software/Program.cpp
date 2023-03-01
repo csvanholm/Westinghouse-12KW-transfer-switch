@@ -1,8 +1,7 @@
-
 #include "pico/stdlib.h"
-#include <string>
 
-//#undef USING_LED_RESISTORS  
+
+//#undef USING_LED_RESISTORS     
 #define USING_LED_RESISTORS
 
 const uint GENERATOR_RUNNING    = 14;
@@ -79,16 +78,14 @@ void Generator::Led(uint id,bool state)
 }
 
 
-void Generator::AliveBlink()  // just indicate that the main loop is polling 
+void Generator::AliveBlink()  
 {
  gpio_put(LED_PIN, 1);
- sleep_ms(5);          // blink onboard LED for 5 ms 
+ sleep_ms(5);             // blink onboard LED for 5 ms to indicate the main loop is running 
  gpio_put(LED_PIN, 0);
- // Update status LEDS
- // (if you installed them them? they are not required)
- if (m_CoolDownCounter>0)
+ if (m_CoolDownCounter>0) // update status LEDS (if you installed them, they are not required)
  {
-  Led(LED_BLUE,!gpio_get(LED_BLUE)); // make cool down led blink if we are in cooldown mode before stopping generator
+  Led(LED_BLUE,!gpio_get(LED_BLUE)); // make cool down led blink if we are in cool-down mode before stopping generator
  } else
  {
    Led(LED_BLUE,0);
@@ -138,13 +135,13 @@ void Generator::InitIoPins()
   gpio_init(START_STOP_RELAY);
   gpio_set_dir(START_STOP_RELAY, GPIO_OUT);
   
-  // CRITICAL!!! the indicator LEDs can be connected directly to the RP2040 ports without a resistor if we use the internal pullup resistor 
+  // CRITICAL!!! The indicator LEDs can be connected directly to the RP2040 ports without a resistor if we use the internal pullup resistor 
   // in the chip.
   // LED ports need to be set as inputs if we are using the internal pullup resistor to drive the led by switching between 
   // pull_up to turn it on and pull_down to turn it off
-  // this will excert just enough current to turn the LEDS on but technically too weak to drive green LEDs.
-  // if you want brighter LEDs you need a 380 to 680 ohm between the RP2040 port and the LEDS and define the USING_LED_RESISTORS
-  
+  // this will draw just enough current to turn the LED's on but technically too weak to drive green LED's.
+  // if you want brighter LED's you need to use a 380 to 680 ohm resistor between the RP2040 port and the LED's and define USING_LED_RESISTORS
+  // at the top of this file  
   #ifndef USING_LED_RESISTORS
   gpio_init(LED_BLUE);
   gpio_set_dir(LED_BLUE,GPIO_IN);
@@ -180,8 +177,8 @@ void Generator::InitIoPins()
 
 void Generator::ReadInputs()
 {
- // The starter cranking the engine might energize the low voltage coil so we dont want to assume the generator is running so just wait a few seconds   
- // transition from no power to power state but assume a 5 second delay before we act on input to ensure engine is running
+ // The starter cranking the engine might energize the low voltage coil so we dont want to assume the generator is running yet so just wait a few seconds.   
+ // transition from no power to power state but assume a 5 second delay before we act on the change input to ensure engine is running
  if (!gpio_get(GENERATOR_RUNNING) && !m_GeneartorRunning) // if current state is different than last state
  {
   if (m_GeneratorPowerStabel > 6)
@@ -196,22 +193,21 @@ void Generator::ReadInputs()
   m_GeneartorRunning   = !gpio_get(GENERATOR_RUNNING);    // active low
   m_GeneratorPowerStabel = 0;
  }
-
  m_GenPowerRequested  = !gpio_get(LINE_POWER_FAIL);
 }
+
 
 void Generator::RunOneTick()
 {
  m_TicksSinceStart++;
- if (m_FailedStartRetryCounter >= 3)  // lockup the controler to prevent repeated restarts (like on out of gas event) to avoid draining the battery     
+ if (m_FailedStartRetryCounter >= 3)  // lockup the controler to prevent repeated restarts attempts (on out of gas) to avoid draining the battery     
  {
   BlinkFailure();
   return;
  }
  ReadInputs();                 // get the current state 
- AliveBlink();                 // blink indicator LEDs
- m_FailedStartRetryCounter<=3;
- if (m_GeneartorRunning)       // if generator is running and poower is requested just keep running and reset cool down counter
+ AliveBlink();                 // blink indicators
+ if (m_GeneartorRunning)       // if generator is running and power is requested just keep running and reset the cool down counter
  {
   m_StartCounter=0;
   m_FailedStartRetryCounter=0; 
@@ -220,8 +216,8 @@ void Generator::RunOneTick()
    m_CoolDownCounter = 0;
   } else
   {
-   m_CoolDownCounter++;         // if generator is running but power is no longer is requested allow the generator to cool down for 40 seconds before stopping it. 
-   if (m_CoolDownCounter >= 80) // this will also take care of power flickering in the first seconds after after utility power returns
+   m_CoolDownCounter++;         // if generator is running but power is no longer requested allow the generator to cool down for 40 seconds before stopping it. 
+   if (m_CoolDownCounter >= 80) // this will also take care of power flickering in the first seconds after utility power returns
    {
     PulseStopButton();          // signale the generator to stop
     m_CoolDownCounter = 0;
@@ -237,7 +233,7 @@ void Generator::RunOneTick()
       PulseStartButton();
     }
     m_StartCounter++;
-    if (m_StartCounter > 60 && m_FailedStartRetryCounter<3)    // if Generator failed to start we try again after 30 seconds after 3rd we goto into fail state (blink all the leds)
+    if (m_StartCounter > 60 && m_FailedStartRetryCounter<3)    // if the Generator failed to start we will try again after 30 seconds after the 3rd attempt we goto into fail state (blink all the leds)
     {
       m_StartCounter=0;         
       m_FailedStartRetryCounter++;
